@@ -6,10 +6,10 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
 from app.routers import actuals, analysis, forecasts, sync, system
+from app.static_content import CachedStaticFiles
 
 
 FRONTEND_BUILD = Path(__file__).resolve().parent.parent / "frontend" / "dist"
@@ -53,4 +53,4 @@ app.include_router(forecasts.router)
 app.include_router(analysis.router)
 
 if FRONTEND_BUILD.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_BUILD, html=True), name="frontend")
+    app.mount("/", CachedStaticFiles(directory=FRONTEND_BUILD, html=True), name="frontend")
