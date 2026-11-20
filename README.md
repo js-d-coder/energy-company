@@ -1,4 +1,4 @@
-# PythonProject1
+# Energy Company
 
 FastAPI backend with a SQLite database and optional static frontend serving.
 

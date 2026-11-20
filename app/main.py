@@ -18,7 +18,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="PythonProject1 API", lifespan=lifespan)
+app = FastAPI(title="Energy company", lifespan=lifespan)
 
 
 @app.get("/api/health")
