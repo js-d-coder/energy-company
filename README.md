@@ -1,25 +1,159 @@
 # Energy Company
 
-FastAPI backend with a SQLite database and optional static frontend serving.
+FastAPI backend for January 2026 UK wind generation analysis. The API retrieves
+national wind actual generation from Elexon's `FUELHH` dataset and wind forecasts
+from `WINDFOR`, stores a local snapshot in SQLite, joins forecasts to actual
+generation, and exposes quantitative accuracy metrics.
 
-## Setup
+## Main API endpoints
 
-Install dependencies with Poetry:
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/sync` | Download January 2026 data from Elexon and refresh SQLite |
+| `GET /api/health` | Health and database check |
+| `GET /api/actual` | Half-hourly wind actual generation for a date range |
+| `GET /api/forecast` | Stored wind forecast revisions |
+| `GET /api/latest-forecast?delivery_date=2026-01-15` | Day-ahead forecasts for one delivery day |
+| `GET /api/forecast-vs-actual` | Hourly actual, forecast, and error values |
+| `GET /api/metrics` | MAE, RMSE, MAPE, bias, and maximum absolute error |
+| `GET /api/dashboard` | Combined data summary for the frontend |
+
+Date parameters accept `YYYY-MM-DD`. The supported range is January 2026.
+
+### Endpoint details
+
+#### `POST /api/sync`
+
+Downloads one month of data from Elexon and replaces-or-updates matching
+database primary keys. It returns:
+
+- `status`: synchronization state
+- `actual_rows`: number of wind actual records processed
+- `forecast_rows`: number of forecast records processed
+- `month`: synchronized month
+
+#### `GET /api/health`
+
+Runs a database connectivity statement and returns `status: ok` plus
+`database: ok` when the API and database are healthy.
+
+#### `GET /api/actual`
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `start` | No | `2026-01-01` | Inclusive start date |
+| `end` | No | `2026-01-02` | Exclusive end date |
+
+Returns actuals in the requested date range. The default covers the 24 hours
+of Jan 1 (up to 48 rows). For example,
+`/api/actual?start=2026-01-01&end=2026-02-01` returns all of January. Each
+item contains `startTime`, `generation`, `fuelType`, `settlementDate`, and
+`settlementPeriod`.
+
+#### `GET /api/forecast`
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `start` | No | `2026-01-01` | Inclusive date |
+| `end` | No | `2026-02-01` | Exclusive date |
+
+Returns `count` and every stored `startTime`/`publishTime` forecast revision,
+including `generation`.
+
+#### `GET /api/latest-forecast`
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `delivery_date` | No | `2026-01-01` | Delivery date in January 2026 |
+
+Returns the latest eligible forecast for each half-hourly delivery period.
+Eligibility requires publication at least 13 hours before delivery.
+
+#### `GET /api/forecast-vs-actual`
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `start` | No | `2026-01-01` | Inclusive date |
+| `end` | No | `2026-02-01` | Exclusive date |
+
+Returns hourly `actualGeneration`, `forecastGeneration`, `publishTime`,
+signed `error`, and `absoluteError`. Signed error is calculated as
+forecast minus actual.
+
+#### `GET /api/metrics` and `GET /api/accuracy`
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `start` | No | `2026-01-01` | Inclusive date |
+| `end` | No | `2026-02-01` | Exclusive date |
+
+Returns `count`, `mae`, `rmse`, `mape`, `bias`, and `maxAbsoluteError`.
+MAPE excludes delivery periods whose actual generation is zero.
+
+#### `GET /api/dashboard`
+
+Returns `period`, `metrics`, hourly `comparison`, `forecastCount`, and
+`actualCount` in one response for frontend consumption.
+
+## File overview
+
+- `app/main.py` - FastAPI application configuration and router registration
+- `app/api_utils.py` - Shared Elexon request, date parsing, and validation helpers
+- `app/routers/system.py` - Health endpoint
+- `app/routers/sync.py` - Elexon data synchronization endpoint
+- `app/routers/actuals.py` - Wind actual generation endpoint
+- `app/routers/forecasts.py` - Forecast listing and latest day-ahead forecast endpoints
+- `app/routers/analysis.py` - Forecast comparison, metrics, and dashboard endpoints
+- `app/database.py` - SQLAlchemy models and SQLite session configuration
+- `frontend/` - React/Vite application
+- `Dockerfile` - Container startup for the API and built frontend
+- `start-local-server.sh` - Convenience script for local startup
+- `app.db` - Local SQLite snapshot after `/api/sync`
+
+## Setup and run
+
+Install dependencies:
 
 ```bash
 poetry install
 ```
 
-## Run
+Start the API:
 
 ```bash
 poetry run uvicorn app.main:app --reload
 ```
 
+Load the January 2026 Elexon snapshot:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/sync
+```
+
 The API health check is available at `http://127.0.0.1:8000/api/health`, and
 the interactive API docs are at `http://127.0.0.1:8000/docs`.
 
-The app serves files from `frontend/build` at `/` when that directory exists.
+The app serves files from `frontend/dist` at `/` when that directory exists.
 The directory can be created by building the frontend; until then, the API can
 run without it. SQLite data is stored in `app.db` by default. Set the
 `DATABASE_URL` environment variable to use a different database URL.
+
+## Docker
+
+```bash
+docker build -t energy-company .
+docker run --rm -p 8000:8000 energy-company
+```
+
+## Accuracy methodology
+
+For each delivery hour, the app averages the two matching half-hour actual
+wind values and compares them with the latest forecast published no later than
+13 hours before delivery. That represents the latest forecast available around
+the day-ahead purchase cutoff. It reports MAE, RMSE, MAPE, bias
+(forecast minus actual), and maximum absolute error.
+
+## AI assistance
+
+AI-assisted coding tools were used to implement the backend, API contracts,
+database integration, Docker setup, and documentation.
