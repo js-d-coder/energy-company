@@ -121,7 +121,7 @@ Returns `period`, `metrics`, hourly `comparison`, `forecastCount`, and
 - `frontend/src/types.ts` - Shared frontend API response and chart types
 - `Dockerfile` - Container startup for the API and built frontend
 - `start-local-server.sh` - Convenience script for local startup
-- `app.db` - Local SQLite snapshot after `/api/sync`
+- `data/app.db` - SQLite snapshot shared by local development and Docker Compose
 
 ## Setup and run
 
@@ -148,8 +148,10 @@ the interactive API docs are at `http://127.0.0.1:8000/docs`.
 
 The app serves files from `frontend/dist` at `/` when that directory exists.
 The directory can be created by building the frontend; until then, the API can
-run without it. SQLite data is stored in `app.db` by default. Set the
-`DATABASE_URL` environment variable to use a different database URL.
+run without it. SQLite data is stored in `data/app.db` by default. Local
+development creates the `data/` directory automatically if it does not exist.
+Set `APP_DATA_DIR` to use another directory. `DATABASE_URL` can still be set
+to provide a complete SQLAlchemy connection URL.
 
 Static cache policy: the HTML entry point is revalidated on each use,
 fingerprinted files under `frontend/dist/assets/` are cached for one year as
@@ -170,10 +172,29 @@ dashboard for serving from FastAPI, run `cd frontend && npm run build`.
 
 ## Docker
 
+Build and start the full application (React assets are built into the backend
+image and served by FastAPI):
+
 ```bash
-docker build -t energy-company .
-docker run --rm -p 8000:8000 energy-company
+docker compose up --build -d
 ```
+
+Open `http://localhost:8000`. Load the Elexon dataset once using
+`curl -X POST http://localhost:8000/api/sync`.
+
+In local development the database is `<project-root>/data/app.db`. Compose
+bind-mounts the same host `data/` directory at `/app/data` in the container,
+where SQLite is also stored as `/app/data/app.db`. The database therefore
+survives container recreation and is shared with local development:
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+To reset the database, stop the application and remove `data/app.db` explicitly.
+Set `PORT` to change the host port, for example
+`PORT=8080 docker compose up --build -d`.
 
 ## Accuracy methodology
 

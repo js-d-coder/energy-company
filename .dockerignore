@@ -1,0 +1,9 @@
+.git
+.idea
+.venv
+frontend/node_modules
+frontend/dist
+app.db
+data/
+__pycache__
+*.pyc

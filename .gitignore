@@ -5,5 +5,8 @@ __pycache__/
 app.db
 app.db-shm
 app.db-wal
+data/app.db
+data/app.db-shm
+data/app.db-wal
 frontend/build
 app.db

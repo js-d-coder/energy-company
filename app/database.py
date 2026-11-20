@@ -10,7 +10,12 @@ from sqlalchemy import Float, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
-DEFAULT_DATABASE_URL = f"sqlite:///{Path(__file__).resolve().parent.parent / 'app.db'}"
+DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(os.getenv("APP_DATA_DIR", DEFAULT_DATA_DIR)).expanduser().resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+DEFAULT_DATABASE_PATH = DATA_DIR / "app.db"
+DEFAULT_DATABASE_URL = f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
