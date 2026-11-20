@@ -5,6 +5,12 @@ national wind actual generation from Elexon's `FUELHH` dataset and wind forecast
 from `WINDFOR`, stores a local snapshot in SQLite, joins forecasts to actual
 generation, and exposes quantitative accuracy metrics.
 
+The React dashboard includes a selectable January 2026 date range, headline
+forecast accuracy metrics, an actual-versus-forecast generation chart, and a
+daily forecast-error chart. An independent delivery-date selector at the top
+shows the eligible day-ahead forecast against actual wind generation for that
+delivery day. Values and timestamps are shown in MW and UTC.
+
 ## Main API endpoints
 
 | Endpoint | Purpose |
@@ -104,8 +110,15 @@ Returns `period`, `metrics`, hourly `comparison`, `forecastCount`, and
 - `app/routers/actuals.py` - Wind actual generation endpoint
 - `app/routers/forecasts.py` - Forecast listing and latest day-ahead forecast endpoints
 - `app/routers/analysis.py` - Forecast comparison, metrics, and dashboard endpoints
+- `app/static_content.py` - Static frontend serving and cache-control policy
 - `app/database.py` - SQLAlchemy models and SQLite session configuration
 - `frontend/` - React/Vite application
+- `frontend/src/App.tsx` - Dashboard data loading and component composition
+- `frontend/src/components/` - Sidebar, period banner with date-range controls, metric cards, charts, and dashboard sections
+- `frontend/src/components/DayAheadSection.tsx` - Independent daily forecast-versus-actual view
+- `frontend/public/icons/` - Standalone SVG icon assets referenced by sized image elements
+- `frontend/src/utils/format.ts` - Shared date and numeric formatting helpers
+- `frontend/src/types.ts` - Shared frontend API response and chart types
 - `Dockerfile` - Container startup for the API and built frontend
 - `start-local-server.sh` - Convenience script for local startup
 - `app.db` - Local SQLite snapshot after `/api/sync`
@@ -137,6 +150,23 @@ The app serves files from `frontend/dist` at `/` when that directory exists.
 The directory can be created by building the frontend; until then, the API can
 run without it. SQLite data is stored in `app.db` by default. Set the
 `DATABASE_URL` environment variable to use a different database URL.
+
+Static cache policy: the HTML entry point is revalidated on each use,
+fingerprinted files under `frontend/dist/assets/` are cached for one year as
+immutable, and other static files (such as public icons) are cached for one
+day with stale-while-revalidate.
+
+For frontend development with hot reload, run the API on port `8765`, then in
+a second terminal run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite proxies `/api` requests to `http://127.0.0.1:8765`. To build the React
+dashboard for serving from FastAPI, run `cd frontend && npm run build`.
 
 ## Docker
 
